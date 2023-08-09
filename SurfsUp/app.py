@@ -1,4 +1,4 @@
-# Import the dependencies.
+# Import the dependencies required
 from flask import Flask, jsonify
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
@@ -30,6 +30,7 @@ session=Session(engine)
 #################################################
 app = Flask(__name__)
 
+# Defining a function that allows me to call back to the date value that is 12 months before the most recent date in our data
 def year_date():
     recent_date= session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
     recent_datetime = dt.datetime.strptime(recent_date, '%Y-%m-%d')
@@ -58,11 +59,14 @@ def home():
 @app.route("/api/v1.0/precipitation")
 def precipitation():
     
+    # Using the previously defined function to retrieve the preceiptation data for the past 12 months
     precipitation = session.query(Measurement.date, Measurement.prcp).\
         filter(Measurement.date>year_date()).all()
     
     session.close()
 
+    # Creating a precipitation dictionary to hold dates as keys, and the precipitation as values in the dictionary. The for loop collects this data.
+    # A JSON list is returned with date, precipitation data
     prcp_dict = {}
 
     for date, precip in precipitation:
@@ -73,10 +77,13 @@ def precipitation():
 @app.route("/api/v1.0/stations")
 def stations():
     
+    # Querying all the necessary data from the Stations table
     station_list = session.query(Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).all()
 
     session.close()
 
+    # Beginning a for loop to record each of the values for the respective columns in the Stations table, in the form of a dictionary.
+    # A JSON list is then generated presenting all the information for each station
     all_stations=[]
 
     for record in station_list:
@@ -94,6 +101,7 @@ def stations():
 @app.route("/api/v1.0/tobs")
 def temp():
     
+    # Our previous year_date function is called once again to run through similar steps as that of the stations route.
     temp = session.query(Measurement.date, Measurement.tobs).\
         filter(Measurement.station == "USC00519281").\
         filter(Measurement.date>year_date()).all()
@@ -102,6 +110,7 @@ def temp():
 
     tobs_list = []
 
+    # In the assignment it wasn't specified to present the date and temperature in a key, value format. So they are presented differently here.
     for date, temperature in temp:
         tobs_dict={}
         tobs_dict["date"]=date
@@ -110,19 +119,24 @@ def temp():
     
     return jsonify(tobs_list)
 
+# Creating both routes that will employ the same function
 @app.route("/api/v1.0/<start>")
 @app.route("/api/v1.0/<start>/<end>")
+# Creating a function where the end date is an optional addition by the user. By default, the value for the end date is None
 def temp_range(start, end=None):
+    # Creating a JOIN to collect information requested for a specific station.
     sel = [Station.name, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)]
 
+    # Experimenting with a try, except and finally functions to navigate the user to provide dates that exist within our data
     try:
         # Convert start and end to datetime objects
         start_date = dt.datetime.strptime(start, '%Y-%m-%d').date()
         if end is not None:
             end_date = dt.datetime.strptime(end, '%Y-%m-%d').date()
         
-        # Validate if the dates are within the desired range
+        # Validate if the dates are within the desired range and create lists of the results to later jsonify
         if (end is None or start_date <= end_date):
+            # Assigning a variable to the initial query so as to not raise errors later
             query_result = session.query(*sel).filter(Station.station == Measurement.station)
             if end is None:
                 start_date_result = query_result.filter(Measurement.date >= start).all()
@@ -133,11 +147,18 @@ def temp_range(start, end=None):
                 result = list(np.ravel(date_range_result))
 
             return jsonify(result)
+
+        # This else conditional indicated that the dates provided are not ascending from start date to end date
         else:
             return jsonify({"error": "Invalid date range. End date should be after or equal to start date."})
 
+    # When the user renders the date in a format different than what is indicated in the home page, this error message will pop up
     except Exception:
         return jsonify({"error": "Invalid date format. Please use YYYY-MM-DD."})
+    
+    # Using finally to eventually close out the session
+    finally:
+        session.close()
 
 
 if __name__ == '__main__':
