@@ -32,9 +32,10 @@ app = Flask(__name__)
 
 def year_date():
     recent_date= session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
-    past_date = recent_date - dt.timedelta(days=365)
+    recent_datetime = dt.datetime.strptime(recent_date, '%Y-%m-%d')
+    past_datetime = recent_datetime - dt.timedelta(days=365)
 
-    return(past_date)
+    return past_datetime
 
 #################################################
 # Flask Routes
@@ -47,13 +48,18 @@ def home():
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
+        f"<br/>"
+        f"The following routes will provide a JSON list containing the minimum, average and maximum temperatures for a specific station<br/>"
+        f"Replace the values for 'start-date' and 'end-date' with a date format of YYYY-MM-DD in order to retrieve the above mentioned values in a JSON list<br/>"
+        f"/api/v1.0/start-date<br/>"
+        f"/api/v1.0/start-date/end-date<br/>"
     )
 
 @app.route("/api/v1.0/precipitation")
 def precipitation():
     
     precipitation = session.query(Measurement.date, Measurement.prcp).\
-        filter(Measurement.date>year_date).all()
+        filter(Measurement.date>year_date()).all()
     
     session.close()
 
@@ -67,11 +73,20 @@ def precipitation():
 @app.route("/api/v1.0/stations")
 def stations():
     
-    station_list = session.query(Station.station).all()
+    station_list = session.query(Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).all()
 
     session.close()
 
-    all_stations = list(np.ravel(station_list))
+    all_stations=[]
+
+    for record in station_list:
+        station_dict = {}
+        station_dict["station"]=record[0]
+        station_dict["name"]=record[1]
+        station_dict["latitude"]=record[2]
+        station_dict["longitude"]=record[3]
+        station_dict["elevation"]=record[4]
+        all_stations.append(station_dict)
 
     return jsonify(all_stations)
 
@@ -81,7 +96,7 @@ def temp():
     
     temp = session.query(Measurement.date, Measurement.tobs).\
         filter(Measurement.station == "USC00519281").\
-        filter(Measurement.date>year_date).all()
+        filter(Measurement.date>year_date()).all()
     
     session.close()
 
@@ -94,6 +109,36 @@ def temp():
         tobs_list.append(tobs_dict)
     
     return jsonify(tobs_list)
+
+@app.route("/api/v1.0/<start>")
+@app.route("/api/v1.0/<start>/<end>")
+def temp_range(start, end=None):
+    sel = [Station.name, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)]
+
+    try:
+        # Convert start and end to datetime objects
+        start_date = dt.datetime.strptime(start, '%Y-%m-%d').date()
+        if end is not None:
+            end_date = dt.datetime.strptime(end, '%Y-%m-%d').date()
+        
+        # Validate if the dates are within the desired range
+        if (end is None or start_date <= end_date):
+            query_result = session.query(*sel).filter(Station.station == Measurement.station)
+            if end is None:
+                start_date_result = query_result.filter(Measurement.date >= start).all()
+                result = list(np.ravel(start_date_result))
+            else:
+                date_range_result = query_result.filter(Measurement.date >= start).\
+                    filter(Measurement.date <= end).all()
+                result = list(np.ravel(date_range_result))
+
+            return jsonify(result)
+        else:
+            return jsonify({"error": "Invalid date range. End date should be after or equal to start date."})
+
+    except Exception:
+        return jsonify({"error": "Invalid date format. Please use YYYY-MM-DD."})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
