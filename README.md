@@ -33,7 +33,7 @@ Throughout this assignment, my code shows the following,
 
 **Sources/References**
 
-[Try, Except and Finally in Python](https://www.geeksforgeeks.org/try-except-else-and-finally-in-python/)
-[Handling Errors, Exceptions and Manipulating JSON data](https://medium.com/@saifulj1234/handling-errors-exceptions-and-manipulating-json-data-in-python-2900353cca1f)
-[Stack Overflow - How to catch all exceptions in try, except block](https://stackoverflow.com/questions/4990718/how-can-i-write-a-try-except-block-that-catches-all-exceptions)
+- [Try, Except and Finally in Python](https://www.geeksforgeeks.org/try-except-else-and-finally-in-python/)
+- [Handling Errors, Exceptions and Manipulating JSON data](https://medium.com/@saifulj1234/handling-errors-exceptions-and-manipulating-json-data-in-python-2900353cca1f)
+- [Stack Overflow - How to catch all exceptions in try, except block](https://stackoverflow.com/questions/4990718/how-can-i-write-a-try-except-block-that-catches-all-exceptions)
 
